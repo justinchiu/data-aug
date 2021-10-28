@@ -56,8 +56,12 @@ each data point so that the data as a whole is more amenable to learning for a p
 
 \section{Problem Setup}
 Given data consisting of $(x,y)$ pairs, our goal is to learn a model $q(y \mid x)$
-such that it maximizes some objective $\Es{p(x,y)}{\argmax_{\hat{y}}D(q(\hat{y} \mid x), y)}$,
+such that it maximizes some objective
+\begin{equation}
+    \Es{p(x,y)}{\argmax_{\hat{y}}D(q(\hat{y} \mid x), y)},
+\end{equation}
 where $D$ is some discrepancy measure between our prediction $\hat{y}$ and the true output $y$.
+
 A concrete example of this is translation, where $x$ is a source sentence (for example, German),
 $y$ is a target sentence (for example, English),
 and $D$ is the BLEU score between our generated translation and the true
