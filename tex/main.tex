@@ -34,7 +34,7 @@
 \usepackage[utf8]{inputenc}
 
 
-\title{Learned Data Augmentation for Non-autoregressive Translation}
+\title{Learned Data Augmentation and Non-autoregressive Translation}
 
 \author{Justin Chiu \\
   Cornell Tech \\
@@ -47,8 +47,27 @@ Abstract
 \end{abstract}
 
 \section{Introduction}
+Learned models of data are often misspecified.
+When the goal of modeling is not density estimation,
+but some alternative objective, this misspecification may lead to undesirable
+behaviour under the maximum likelihood objective.
+In this note, we consider learned data augmentation techniques to edit
+each data point so that the data as a whole is more amenable to learning for a particular model.
 
 \section{Problem Setup}
+Given data consisting of $(x,y)$ pairs, our goal is to learn a model $q(y \mid x)$
+such that it maximizes some objective $\Es(p(x,y))[\argmax_{\hat{y}}D(q(\hat{y} \mid x), y)]$,
+where $D$ is some discrepancy measure between our prediction $\hat{y}$ and the true output $y$.
+A concrete example of this is translation, where $x$ is a source sentence (for example, German),
+$y$ is a target sentence (for example, English),
+and $D$ is the BLEU score between our generated translation and the true
+reference target sentence.
+Our goal is to, given a family of student models $q_\theta(y \mid x)$ indexed by $\theta$,
+learn an edit model $q_\phi(\hat{y} \mid y, x)$ whose conditional distribution over $\hat{y}$
+is easier for the student model $q_\theta$ to learn.
+
+\section{Method}
+
 
 \bibliography{bib}
 
