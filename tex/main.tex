@@ -1,0 +1,55 @@
+% This must be in the first 5 lines to tell arXiv to use pdfLaTeX, which is strongly recommended.
+\pdfoutput=1
+% In particular, the hyperref package requires pdfLaTeX in order to break URLs across lines.
+
+\documentclass[11pt]{article}
+
+\usepackage[a4paper, total={6in, 8in}]{geometry}
+\usepackage{lineno}
+\linenumbers
+
+\usepackage{caption,subcaption}
+
+\usepackage{mystyle}
+
+\usetikzlibrary{calc,patterns,angles,quotes}    
+\usetikzlibrary{decorations.pathmorphing}
+\tikzset{snake it/.style={decorate, decoration=snake}}
+
+\usepackage{natbib}
+\bibliographystyle{abbrvnat}
+\usepackage{hyperref}
+
+% Standard package includes
+\usepackage{times}
+\usepackage{latexsym}
+
+% For proper rendering and hyphenation of words containing Latin characters (including in bib files)
+\usepackage[T1]{fontenc}
+% For Vietnamese characters
+% \usepackage[T5]{fontenc}
+% See https://www.latex-project.org/help/documentation/encguide.pdf for other character sets
+
+% This assumes your files are encoded as UTF8
+\usepackage[utf8]{inputenc}
+
+
+\title{Learned Data Augmentation for Non-autoregressive Translation}
+
+\author{Justin Chiu \\
+  Cornell Tech \\
+  \texttt{jtc257@cornell.edu}}
+
+\begin{document}
+\maketitle
+\begin{abstract}
+Abstract
+\end{abstract}
+
+\section{Introduction}
+
+\section{Problem Setup}
+
+\bibliography{bib}
+
+\end{document}
