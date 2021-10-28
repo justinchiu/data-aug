@@ -55,22 +55,47 @@ In this note, we consider learned data augmentation techniques to edit
 each data point so that the data as a whole is more amenable to learning for a particular model.
 
 \section{Problem Setup}
-Given data consisting of $(x,y)$ pairs, our goal is to learn a model $q(y \mid x)$
-such that it maximizes some objective
+Given data consisting of $(x,y)$ pairs, our goal is to learn a model $q_\theta(y \mid x)$
+such that it maximizes the functional
 \begin{equation}
-    \Es{p(x,y)}{\argmax_{\hat{y}}D(q(\hat{y} \mid x), y)},
+    \label{eqn:obj}
+    F(q) = \Es{p(x,y)}{\argmax_{\hat{y}}d(q_\theta(\hat{y} \mid x), y)},
 \end{equation}
-where $D$ is some discrepancy measure between our prediction $\hat{y}$ and the true output $y$.
+where $p(x,y)$ is the data distribution and $d$ is some measure of correctness between our
+prediction $\hat{y}$ and the true output $y$.
 
 A concrete example of this is translation, where $x$ is a source sentence (for example, German),
 $y$ is a target sentence (for example, English),
-and $D$ is the BLEU score between our generated translation and the true
+and $d$ is the BLEU score between our generated translation and the true
 reference target sentence.
-Our goal is to, given a family of student models $q_\theta(y \mid x)$ indexed by $\theta$,
+Our goal is to, given a family of student models $q_\theta(y \mid x)$,
 learn an edit model $q_\phi(\hat{y} \mid y, x)$ whose conditional distribution over $\hat{y}$
 is easier for the student model $q_\theta$ to learn.
+Learning an intermediate distribution will allow the student model to focus on modeling
+the important aspects of the true distribution while ignoring others,
+the goal of minimizing the true objective in Equation \ref{eqn:obj}.
 
-\section{Method}
+To accomplish this, we propose to solve the following
+\begin{equation}
+    \label{eqn:outer}
+    \argmin_\phi \KL{p(y \mid x) || q_\phi(\hat{y} \mid y, x)}
+    + \min_\theta \KL{q_\phi(\hat{y} \mid y, x) || q_\theta(\hat{y} \mid x)}.
+\end{equation}
+This is a bilevel optimization problem, where we want to find the edit model
+that is able to balance faithfulness to the true data (the first term)
+as well as learnability of the student model (the second term).
+We refer to Equation \ref{eqn:outer} as the outer problem,
+and the second term as the inner problem:
+\begin{equation}
+    \label{eqn:inner}
+    \argmin_\theta \KL{q_\phi(\hat{y} \mid y, x) || q_\theta(\hat{y} \mid x)}.
+\end{equation}
+
+\section{Method 1: Exact Setting}
+We first make the simplifying assumption that we can solve the inner problem exactly.
+In order to solve the full outer problem, we will differentiate through the solution of the
+inner problem using the implicit function theorem.
+
 
 
 \bibliography{bib}
