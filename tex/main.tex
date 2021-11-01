@@ -52,30 +52,43 @@ When the goal of modeling is not density estimation,
 but some alternative objective, this misspecification may lead to undesirable
 behaviour under the maximum likelihood objective.
 In this note, we consider learned data augmentation techniques to edit
-each data point so that the data as a whole is more amenable to learning for a particular model.
+each data point so that the augmented data is more amenable to a particular model class,
+while hopefully preserving the properties we care about.
+
+A concrete example of a setup where maximum likelihood may not be desirable is
+non-autoregressive translation, which we focus on in this note.
+In translation, the goal is to translate a source sentence from one language
+into a sentence in a different target language.
+The success of translation is measured by the BLEU score
+between our generated translation and the true reference target sentence.
+As the BLEU score is not a function of distributional closeness to the true data,
+translation systems often discard distributional information and
+output a single translation of a source sentence.
+However, the training objective is still often maximum likelihood, a function of
+the model distribution.
+
+In the case of non-autoregressive translation, this results in undesirable behaviour.
+As non-autoregressive models cannot model output dependencies,
+resulting models trained via maximum likelihood using the true distribution
+often have pathological errors due to misspecification,
+and therefore poor BLEU scores.
+We aim to resolve this via data augmentation.
+
+Prior work shows that distillation is a successful data augmentation approach.
+We instead rely on neural editor models \citep{edit},
+which are a trainable alternative to data augmentation \citep{recombine}.
 
 \section{Problem Setup}
-Given data consisting of $(x,y)$ pairs, our goal is to learn a model $q_\theta(y \mid x)$
-such that it maximizes the functional
-\begin{equation}
-    \label{eqn:obj}
-    F(q) = \Es{p(x,y)}{\argmax_{\hat{y}}d(q_\theta(\hat{y} \mid x), y)},
-\end{equation}
-where $p(x,y)$ is the data distribution and $d$ is some measure of correctness between our
-prediction $\hat{y}$ and the true output $y$.
+Source sentence $x$, target sentence $y$.
+True translation distribution $p(y \mid x)$.
 
-A concrete example of this is translation, where $x$ is a source sentence (for example, German),
-$y$ is a target sentence (for example, English),
-and $d$ is the BLEU score between our generated translation and the true
-reference target sentence.
-Our goal is to, given a family of student models $q_\theta(y \mid x)$,
+We propose to, given a family of student models $q_\theta(y \mid x)$,
 learn an edit model $q_\phi(\hat{y} \mid y, x)$ whose conditional distribution over $\hat{y}$
 is easier for the student model $q_\theta$ to learn.
-Learning an intermediate distribution will allow the student model to focus on modeling
-the important aspects of the true distribution while ignoring others,
-the goal of minimizing the true objective in Equation \ref{eqn:obj}.
+Learning an intermediate distribution will allow the student model to focus on only modeling
+the important aspects of the true distribution.
 
-To accomplish this, we propose to solve the following
+To accomplish this, we propose to solve the following optimization problem
 \begin{equation}
     \label{eqn:outer}
     \argmin_\phi \KL{p(y \mid x) || q_\phi(\hat{y} \mid y, x)}
@@ -91,12 +104,110 @@ and the second term as the inner problem:
     \argmin_\theta \KL{q_\phi(\hat{y} \mid y, x) || q_\theta(\hat{y} \mid x)}.
 \end{equation}
 
-\section{Method 1: Exact Setting}
+\section{Method 1: The Exact Setting}
 We first make the simplifying assumption that we can solve the inner problem exactly.
-In order to solve the full outer problem, we will differentiate through the solution of the
-inner problem using the implicit function theorem.
+In order to then solve the full outer problem, we will differentiate through the solution of the
+inner problem.
+In full generality, this would require an application of the implicit function theorem,
+or approximations through sampling or incomplete optimization.
+
+\subsection{Experiment: Length-2 Binary Strings + Non-autoregressive Student}
+Our first experiment will determine whether training an edit model is possible in a
+very simple setting, where we can compute the solution to the inner problem
+(training the student model given an edit model) in closed form,
+and subsequently differentiate through that procedure.
+
+We restrict our attention to distributions over target sentences that are
+binary strings of length 2 without conditioning on a source sentence.
+In particular, our true distribution takes the form
+$$y = b_1[0,0] + b_2 [0,1] + b_3[1,0] + b_4[1,1],$$
+where $b\sim\Cat(\lambda)$.
+As we are interested in disambiguation, we first focus on the case where
+$b_1, b_4 \approx 0$, and $b_2 < b_3$.
+The edit model then takes the form
+$$q_\phi(\hat{y} \mid y)= [\phi]_{\hat{y},y},$$
+where $\hat{y},y \in \set{0,1}^2 = \mcY$ and $\phi \in [0,1]^{\mcY\times\mcY}$.
+The student is nonautoregressive, and has the form
+$$q_\theta(\hat{y}) = \prod_t q_\theta(\hat{y}_t)
+= [\theta]_{1,\hat{y}_1} \cdot [\theta]_{2,\hat{y}_2},$$
+where $\theta\in[0,1]^{2\times\mcY}$.
+
+In this setting, we can exactly compute the solution of the inner problem,
+$$
+\argmin_\theta \Es{y}{\KL{q_\phi(\hat{y}) \mid y} || q_\theta(\hat{y})}
+= \argmin_\theta \Es{y}{\sum_{\hat{y}} q_\phi(\hat{y} \mid y)
+    \left(\log q_\phi(\hat{y} \mid y) - \log q_\theta(\hat{y})\right)
+},
+$$
+and differentiate through it.
+The minimizer is given by
+\begin{align*}
+    [\theta]_{1,0} &= \sum_y\sum_{\hat{y}} p(y)q_\phi(\hat{y}\mid y) 1(\hat{y}_1=0)\\
+    [\theta]_{2,0} &= \sum_y\sum_{\hat{y}} p(y)q_\phi(\hat{y}\mid y) 1(\hat{y}_2=0)\\
+    [\theta]_{t,1} &= 1 - [\theta]_{t,0},
+\end{align*}
+which is differentiable wrt $\phi$.
+
+\paragraph{Results}
+We find that the editor model is able to disambiguate the true data
+and produces a new data distribution with no dependencies across time,
+resulting in a distribution that is easier for the student to match.
+We see the results of training the editor model with the following conditions:
+\begin{itemize}
+    \item $b = [0.001, 0.4, 0.59, 0.001]$
+    \item Editor is initialized to uniform everywhere except
+        the transitions from [0,1] and [1,0], where transitions to
+        [0,0] and [1,1] are given low mass in order to speed up training
+    \item We recompute the parameters of the student by
+        solving the inner problem at every iteration
+    \item We solve the outer problem via gradient descent
+        (1k iterations, learning rate of 1e-3)
+\end{itemize}
+
+\begin{figure}[h]
+\centering
+\begin{subfigure}[t]{0.45\textwidth}
+\centering
+\includegraphics[height=2in]{../plots/editor_init.png}
+\end{subfigure}
+\begin{subfigure}[t]{0.45\textwidth}
+\centering
+\includegraphics[height=2in]{../plots/editor_final.png}
+\end{subfigure}
+\caption{
+\label{fig:editor-toy}
+The emission probabilities for the editor model at the start of training (left)
+and end of training (right).
+}
+\end{figure}
 
 
+\begin{figure}[h]
+\centering
+\begin{subfigure}[t]{0.45\textwidth}
+\centering
+\includegraphics[height=2in]{../plots/student_init.png}
+\end{subfigure}
+\begin{subfigure}[t]{0.45\textwidth}
+\centering
+\includegraphics[height=2in]{../plots/student_final.png}
+\end{subfigure}
+\caption{
+\label{fig:student-toy}
+The emission probabilities for the student model at the start of training (left)
+and end of training (right).
+}
+\end{figure}
+
+\section{Decoding: work back into problem setup later}
+Given data consisting of $(x,y)$ pairs, our goal is to learn a model $q_\theta(y \mid x)$
+such that it maximizes the functional
+\begin{equation}
+    \label{eqn:obj}
+    F(q) = \Es{p(x,y)}{\argmax_{\hat{y}}d(q_\theta(\hat{y} \mid x), y)},
+\end{equation}
+where $p(x,y)$ is the data distribution and $d$ is some measure of correctness between our
+prediction $\hat{y}$ and the true output $y$.
 
 \bibliography{bib}
 
