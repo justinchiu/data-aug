@@ -30,10 +30,12 @@ class DummyStudent:
         self.V = V
         #self.unnormalized_log_probs = jnp.zeros((T, V))
         self.unnormalized_log_probs = jax.device_put(np.random.randn(T, V))
-
     def log_probs(self):
         Z = lse(self.unnormalized_log_probs, 1, keepdims=True)
         return self.unnormalized_log_probs - Z
+    def score(self, x):
+        log_probs = self.log_probs()
+        return log_probs[np.arange(self.T), x]
 
     @staticmethod
     def compute_log_probs_struct(log_probs):
@@ -44,10 +46,6 @@ class DummyStudent:
             log_probs[0,1] + log_probs[1,0],
             log_probs[0,1] + log_probs[1,1],
         ))
-
-    def score(self, x):
-        log_probs = self.log_probs()
-        return log_probs[np.arange(self.T), x]
 
     @staticmethod
     def compute_mle(marginals):
@@ -190,11 +188,13 @@ def plot_heatmap(im, filename, labels):
 
 
 def main():
+    do_plot = False
+
     pad = 1e-3
     low = 0.4
     B = jnp.array([pad, low, 1-2*pad-low, pad])
     log_B = jnp.log(B)
-    iters = 1000
+    iters = 10
     alpha = 1e-1
 
     struct_data = generate_data(B)
@@ -218,8 +218,9 @@ def main():
     print(student_params)
     editor_labels = ["00", "01", "10", "11"]
     student_labels = ["0", "1"]
-    plot_heatmap(editor_params, "editor_init", editor_labels)
-    plot_heatmap(student_params, "student_init", student_labels)
+    if do_plot:
+        plot_heatmap(editor_params, "editor_init", editor_labels)
+        plot_heatmap(student_params, "student_init", student_labels)
 
     params, kls, grad_norms = train(log_B, editor, student, iters=iters, alpha=alpha)
 
@@ -231,10 +232,10 @@ def main():
     print(editor_params)
     print("Final student params")
     print(student_params)
-    plot_heatmap(editor_params, "editor_final", editor_labels)
-    plot_heatmap(student_params, "student_final", student_labels)
-
-    plot(kls, grad_norms)
+    if do_plot:
+        plot_heatmap(editor_params, "editor_final", editor_labels)
+        plot_heatmap(student_params, "student_final", student_labels)
+        plot(kls, grad_norms)
 
 
 if __name__ == "__main__":

@@ -120,7 +120,7 @@ and subsequently differentiate through that procedure.
 We restrict our attention to distributions over target sentences that are
 binary strings of length 2 without conditioning on a source sentence.
 In particular, our true distribution takes the form
-$$y = b_1[0,0] + b_2 [0,1] + b_3[1,0] + b_4[1,1],$$
+$$y = b_1\cdot 00 + b_2\cdot 01 + b_3\cdot 10 + b_4\cdot 11,$$
 where $b\sim\Cat(\lambda)$.
 As we are interested in disambiguation, we first focus on the case where
 $b_1, b_4 \approx 0$, and $b_2 < b_3$.
@@ -163,6 +163,12 @@ We see the results of training the editor model with the following conditions:
     \item We solve the outer problem via gradient descent
         (1k iterations, learning rate of 1e-3)
 \end{itemize}
+We see in Figure \ref{fig:editor-toy} (right) that the editor learns to remove instances of
+01 from the data in favor of consistently outputting 10.
+This results in the student model being very certain, as seen in Figure
+\ref{fig:student-toy} (right).
+We conclude that, in this very simple setting, the bilevel optimization formulation
+successfully disambiguates the data.
 
 \begin{figure}[h]
 \centering
@@ -199,7 +205,8 @@ and end of training (right).
 }
 \end{figure}
 
-\section{Decoding: work back into problem setup later}
+
+\section*{Decoding: work back into problem setup later}
 Given data consisting of $(x,y)$ pairs, our goal is to learn a model $q_\theta(y \mid x)$
 such that it maximizes the functional
 \begin{equation}
