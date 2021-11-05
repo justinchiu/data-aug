@@ -121,7 +121,8 @@ We restrict our attention to distributions over target sentences that are
 binary strings of length 2 without conditioning on a source sentence.
 In particular, our true distribution takes the form
 $$y = b_1\cdot 00 + b_2\cdot 01 + b_3\cdot 10 + b_4\cdot 11,$$
-where $b\sim\Cat(\lambda)$.
+where $b\sim\Cat(\lambda)$, represented as a one-hot sample
+(meaning only one of $b_i$ can be 1, while the rest must be 0).
 As we are interested in disambiguation, we first focus on the case where
 $b_1, b_4 \approx 0$, and $b_2 < b_3$.
 The edit model then takes the form
@@ -134,7 +135,7 @@ where $\theta\in[0,1]^{2\times\mcY}$.
 
 In this setting, we can exactly compute the solution of the inner problem,
 $$
-\argmin_\theta \Es{y}{\KL{q_\phi(\hat{y}) \mid y} || q_\theta(\hat{y})}
+\argmin_\theta \Es{y}{\KL{q_\phi(\hat{y} \mid y)} || q_\theta(\hat{y})}
 = \argmin_\theta \Es{y}{\sum_{\hat{y}} q_\phi(\hat{y} \mid y)
     \left(\log q_\phi(\hat{y} \mid y) - \log q_\theta(\hat{y})\right)
 },
