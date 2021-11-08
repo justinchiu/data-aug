@@ -91,7 +91,7 @@ the important aspects of the true distribution.
 To accomplish this, we propose to solve the following optimization problem
 \begin{equation}
     \label{eqn:outer}
-    \argmin_\phi \KL{p(y \mid x) || q_\phi(\hat{y} \mid y, x)}
+    \argmin_\phi \KL{p(y \mid x) || \sum_y q_\phi(\hat{y} \mid y, x)p(y \mid x)}
     + \min_\theta \KL{q_\phi(\hat{y} \mid y, x) || q_\theta(\hat{y} \mid x)}.
 \end{equation}
 This is a bilevel optimization problem, where we want to find the edit model
@@ -103,6 +103,19 @@ and the second term as the inner problem:
     \label{eqn:inner}
     \argmin_\theta \KL{q_\phi(\hat{y} \mid y, x) || q_\theta(\hat{y} \mid x)}.
 \end{equation}
+The first term of the outer problem, the KL divergence between the true distribution
+and the marginal posterior of the edit distribution,
+serves as a regularizer and encourages the marginal distribution of
+the edit distribution combined with the data distribution to be close to the
+original data distribution.
+As this setting may be both too restrictive as well as not example-specific,
+we also consider the following variation:
+\begin{equation}
+    \label{eqn:regularized-bilevel}
+    \argmin_\phi \sum_y \Omega(y, q_\phi(\hat{y} \mid y, x))
+    + \min_\theta \KL{q_\phi(\hat{y} \mid y, x) || q_\theta(\hat{y} \mid x)},
+\end{equation}
+allowing us to perform instance-level regularization rather than distributional.
 
 \section{Method 1: The Exact Setting}
 We first make the simplifying assumption that we can solve the inner problem exactly.
@@ -155,7 +168,7 @@ and produces a new data distribution with no dependencies across time,
 resulting in a distribution that is easier for the student to match.
 We see the results of training the editor model with the following conditions:
 \begin{itemize}
-    \item $b = [0.001, 0.4, 0.59, 0.001]$
+    \item $b = [0.001, 0.45, 0.54, 0.001]$
     \item Editor is initialized to uniform everywhere except
         the transitions from [0,1] and [1,0], where transitions to
         [0,0] and [1,1] are given low mass in order to speed up training
@@ -164,22 +177,22 @@ We see the results of training the editor model with the following conditions:
     \item We solve the outer problem via gradient descent
         (1k iterations, learning rate of 1e-3)
 \end{itemize}
-We see in Figure \ref{fig:editor-toy} (right) that the editor learns to remove instances of
-01 from the data in favor of consistently outputting 10.
+We see in Figure \ref{fig:editor-toy} (right) that the editor learns to
+bias the data further towards $[1,0]$.
 This results in the student model being very certain, as seen in Figure
 \ref{fig:student-toy} (right).
-We conclude that, in this very simple setting, the bilevel optimization formulation
-successfully disambiguates the data.
+In this very simple setting, the bilevel optimization formulation
+successfully increases the assymmetry of the data.
 
 \begin{figure}[h]
 \centering
 \begin{subfigure}[t]{0.45\textwidth}
 \centering
-\includegraphics[height=2in]{../plots/editor_init.png}
+\includegraphics[height=2in]{../plots/very_uneven_prior_editor_init.png}
 \end{subfigure}
 \begin{subfigure}[t]{0.45\textwidth}
 \centering
-\includegraphics[height=2in]{../plots/editor_final.png}
+\includegraphics[height=2in]{../plots/very_uneven_prior_editor_final.png}
 \end{subfigure}
 \caption{
 \label{fig:editor-toy}
@@ -188,16 +201,15 @@ and end of training (right).
 }
 \end{figure}
 
-
 \begin{figure}[h]
 \centering
 \begin{subfigure}[t]{0.45\textwidth}
 \centering
-\includegraphics[height=2in]{../plots/student_init.png}
+\includegraphics[height=2in]{../plots/very_uneven_prior_student_init.png}
 \end{subfigure}
 \begin{subfigure}[t]{0.45\textwidth}
 \centering
-\includegraphics[height=2in]{../plots/student_final.png}
+\includegraphics[height=2in]{../plots/very_uneven_prior_student_final.png}
 \end{subfigure}
 \caption{
 \label{fig:student-toy}
@@ -205,6 +217,51 @@ The emission probabilities for the student model at the start of training (left)
 and end of training (right).
 }
 \end{figure}
+
+However, in settings where the true data distribution is less skewed,
+the objective does not allow the edit model to deviate too far.
+Figures \ref{fig:editor-toy2} and \ref{fig:student-toy2} show the results
+when $b = [1e-3, 0.5, 0.5, 1-e3]$.
+In this setting, both the data distribution and edit distribution are symmetric,
+resulting in the student remaining at a standstill.
+This is because any movement away from the true distribution would incur
+too large a penalty in the first term of the objective,
+$\KL{p(y) || \sum_y q(\hat{y} \mid y)p(y)}$.
+
+\begin{figure}[h]
+\centering
+\begin{subfigure}[t]{0.45\textwidth}
+\centering
+\includegraphics[height=2in]{../plots/even_prior_editor_init.png}
+\end{subfigure}
+\begin{subfigure}[t]{0.45\textwidth}
+\centering
+\includegraphics[height=2in]{../plots/even_prior_editor_final.png}
+\end{subfigure}
+\caption{
+\label{fig:editor-toy2}
+The emission probabilities for the editor model at the start of training (left)
+and end of training (right) with an even true data distribution.
+}
+\end{figure}
+
+\begin{figure}[h]
+\centering
+\begin{subfigure}[t]{0.45\textwidth}
+\centering
+\includegraphics[height=2in]{../plots/even_prior_student_init.png}
+\end{subfigure}
+\begin{subfigure}[t]{0.45\textwidth}
+\centering
+\includegraphics[height=2in]{../plots/even_prior_student_final.png}
+\end{subfigure}
+\caption{
+\label{fig:student-toy2}
+The emission probabilities for the student model at the start of training (left)
+and end of training (right) with an even true data distribution.
+}
+\end{figure}
+
 
 
 \section*{Decoding: work back into problem setup later}

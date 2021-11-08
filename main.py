@@ -69,12 +69,19 @@ class EditModel:
         #self.unnormalized_log_probs = jax.device_put(np.random.randn(T, V, V))
         # self.lp: old(time * vocab) x new(time * vocab)
         #self.unnormalized_log_probs = jax.device_put(np.random.randn(T*V, T*V))
+        #self.unnormalized_log_probs = jax.device_put(np.random.randn(T*V, T*V))
         self.unnormalized_log_probs = jnp.zeros((T*V, T*V))
         fillval = -10
         self.unnormalized_log_probs = self.unnormalized_log_probs.at[1, 0].set(fillval)
         self.unnormalized_log_probs = self.unnormalized_log_probs.at[1,-1].set(fillval)
         self.unnormalized_log_probs = self.unnormalized_log_probs.at[2, 0].set(fillval)
         self.unnormalized_log_probs = self.unnormalized_log_probs.at[2,-1].set(fillval)
+
+        #self.unnormalized_log_probs = self.unnormalized_log_probs.at[1,1].set(0)
+        #self.unnormalized_log_probs = self.unnormalized_log_probs.at[1,2].set(0)
+        #self.unnormalized_log_probs = self.unnormalized_log_probs.at[2,1].set(0)
+        #self.unnormalized_log_probs = self.unnormalized_log_probs.at[2,2].set(0.1)
+
         self.key = random.PRNGKey(0)
 
     def log_probs(self):
@@ -133,10 +140,10 @@ def compute_objective(unnormalized_log_probs, data, editor, student):
 
 def generate_data(b, N=10, T=2, V=2):
     data = np.array([[0,0], [0, 1], [1, 0], [1,1]])
-    idx = np.random.choice(data.shape[0], p=b, size=(N,))
+    idx = np.random.choice(data.shape[0], p=np.array(b), size=(N,))
     return data[idx]
 
-def train(b, editor, student, iters=100, alpha=0.01):
+def train(b, editor, student, iters, alpha):
     params = editor.unnormalized_log_probs
     kls = []
     grad_norms = []
@@ -148,7 +155,7 @@ def train(b, editor, student, iters=100, alpha=0.01):
         grad_norms.append(jnp.linalg.norm(grad))
     return params, kls, grad_norms
 
-def plot(kls, grad_norms):
+def plot(kls, grad_norms, prefix=""):
     import pandas as pd
     import matplotlib.pyplot as plt
     import seaborn as sns
@@ -172,7 +179,7 @@ def plot(kls, grad_norms):
     ax1.set_ylabel("Grad Norm")
 
     fig.tight_layout()
-    fig.savefig("plots/training_plots.png")
+    fig.savefig(f"plots/{prefix}training_plots.png")
     plt.close()
 
 def plot_heatmap(im, filename, labels):
@@ -187,26 +194,12 @@ def plot_heatmap(im, filename, labels):
     plt.close()
 
 
-def main():
-    do_plot = False
-
-    pad = 1e-3
-    low = 0.4
-    B = jnp.array([pad, low, 1-2*pad-low, pad])
+def run(B, iters=1000, alpha=1e-1, do_plot=False, plot_string=""):
+    print("True dist params")
+    print(B)
     log_B = jnp.log(B)
-    iters = 10
-    alpha = 1e-1
-
-    struct_data = generate_data(B)
-    flat_data = struct2flat(struct_data)
-    x = flat2struct(flat_data)
-    assert(np.allclose(x, struct_data))
-
     student = DummyStudent()
-    #sscore = student.score(struct_data)
     editor = EditModel()
-    #escore = editor.score(flat_data, flat_data)
-    #editor.sample(struct_data)
 
     # initial student params
     marginals = editor.compute_marginals(editor.unnormalized_log_probs, log_B)
@@ -219,8 +212,8 @@ def main():
     editor_labels = ["00", "01", "10", "11"]
     student_labels = ["0", "1"]
     if do_plot:
-        plot_heatmap(editor_params, "editor_init", editor_labels)
-        plot_heatmap(student_params, "student_init", student_labels)
+        plot_heatmap(editor_params, f"{plot_string}editor_init", editor_labels)
+        plot_heatmap(student_params, f"{plot_string}student_init", student_labels)
 
     params, kls, grad_norms = train(log_B, editor, student, iters=iters, alpha=alpha)
 
@@ -233,9 +226,30 @@ def main():
     print("Final student params")
     print(student_params)
     if do_plot:
-        plot_heatmap(editor_params, "editor_final", editor_labels)
-        plot_heatmap(student_params, "student_final", student_labels)
-        plot(kls, grad_norms)
+        plot_heatmap(editor_params, f"{plot_string}editor_final", editor_labels)
+        plot_heatmap(student_params, f"{plot_string}student_final", student_labels)
+        plot(kls, grad_norms, plot_string)
+
+
+def main():
+    do_plot = True
+
+    pad = 1e-3
+    low = 0.45
+    B = jnp.array([pad, low, 1-2*pad-low, pad])
+    print("VERY UNEVEN PRIOR")
+    run(B, do_plot=do_plot, plot_string="very_uneven_prior_")
+
+    pad = 1e-3
+    low = 0.49
+    B = jnp.array([pad, low, 1-2*pad-low, pad])
+    print("UNEVEN PRIOR")
+    run(B, do_plot=do_plot, plot_string="uneven_prior_")
+
+    low = (1 - 2 * pad) / 2
+    B = jnp.array([pad, low, 1-2*pad-low, pad])
+    print("EVEN PRIOR")
+    run(B, do_plot=do_plot, plot_string="even_prior_")
 
 
 if __name__ == "__main__":
