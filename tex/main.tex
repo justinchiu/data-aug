@@ -177,6 +177,22 @@ The former would require some care due to high variance.
 One approach to variance reduction could be to use a baseline (self-critical, LOO, RELAX),
 in combination with sampling without replacement or stochastic beam search.
 
+\paragraph{Fixing a Fatal Flaw: Constraining $\hat{y}$}
+The augmented data $\hat{y}$ is completely unconstrained in this scenario,
+leading to the possibility that the model can learn an informative $\hat{y}$
+that is not useful for translation.
+Normally, this would be prevented by the likelihood $p(y \mid \hat{y},z)$.
+However, if the likelihood is too flexible (as will likely be the case for us),
+$\hat{y}$ must be constrained via other means.
+In particular, we can use posterior regularization.
+This could entail adding an expectation constraint that ensures that the
+approximate translation proposal posterior does not deviate too far from a pretrained
+translation model $p^*(y \mid x)$ trained via normal means:
+$$\Es{q(\hat{y} \mid z, y, x)}{ \log \frac{q(\hat{y} \mid z, y, x)}{p^*(\hat{y} \mid x)} \le \epsilon}.$$
+
+Alternatively, we can fix a pretrained NAT prior $p(\hat{y}\mid x)$ and
+train the edit model to completion, then train another model on the generated data.
+
 \section{Experiments}
 \paragraph{Toy experiment}
 Augment PCFG-generated data into NAT.
