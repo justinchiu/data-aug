@@ -177,7 +177,7 @@ The former would require some care due to high variance.
 One approach to variance reduction could be to use a baseline (self-critical, LOO, RELAX),
 in combination with sampling without replacement or stochastic beam search.
 
-\paragraph{Fixing a Fatal Flaw: Constraining $\hat{y}$}
+\paragraph{Fixing a fatal Flaw: constraining $\hat{y}$}
 The augmented data $\hat{y}$ is completely unconstrained in this scenario,
 leading to the possibility that the model can learn an informative $\hat{y}$
 that is not useful for translation.
@@ -209,6 +209,13 @@ Run variational EM and see if anything improves.
 
 \paragraph{Experiments from scratch}
 Run variational EM and see if anything happens from scratch.
+
+\section{Problem Setup: Search (Only)}
+Fix the teacher model, frame the problem following \citet{emnat}:
+Find the dataset $\hat{Y} = (\hat{y}_i)_i$ by solving
+\begin{equation}
+    \normaltext{maximize} 12
+\end{equation}
 
 \section{Problem Setup: Bilevel Optimization (deprecated)}
 Source sentence $x$, target sentence $y$.
