@@ -195,8 +195,11 @@ Alternatively, we can fix a pretrained NAT prior $p(\hat{y}\mid x)$ and
 train the edit model to completion, then train another model on the generated data.
 
 \section{Experiments}
-\paragraph{Toy experiment}
-Augment PCFG-generated data into NAT.
+\paragraph{Toy experiments}
+\begin{itemize}
+\item Take set of strings and tie-break synonyms
+\item Augment PCFG-generated data into NAT (tree synonyms, movement)
+\end{itemize}
 
 \paragraph{Improving distillation}
 Start with NAT model trained with distillation,
