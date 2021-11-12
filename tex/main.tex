@@ -175,7 +175,8 @@ use Concrete relaxations of each $p(\hat{y}_t \mid l)$.
 The latter would allow us to estimate gradients with a pathwise derivative estimator.
 The former would require some care due to high variance.
 One approach to variance reduction could be to use a baseline (self-critical, LOO, RELAX),
-in combination with sampling without replacement or stochastic beam search.
+in combination with multi-sample estiamtors
+(Rao-Blackwellization or sampling without replacement or stochastic beam search).
 
 \paragraph{Fixing a fatal Flaw: constraining $\hat{y}$}
 The augmented data $\hat{y}$ is completely unconstrained in this scenario,
@@ -214,8 +215,14 @@ Run variational EM and see if anything happens from scratch.
 Fix the teacher model, frame the problem following \citet{emnat}:
 Find the dataset $\hat{Y} = (\hat{y}_i)_i$ by solving
 \begin{equation}
-    \normaltext{maximize} 12
+    \begin{aligned}
+    \textnormal{minimize }& \sum_i \log q(\hat{y}_i \mid x)\\
+    \textnormal{subject to } & \sum_i \log\frac{p(y_i \mid x)}{p(\hat{y}_i \mid x)} \le \epsilon,
+    \end{aligned}
 \end{equation}
+which looks for a dataset that is high probability under a non-autoregressive student model
+$q(y \mid x)$, but also high probability under a baseline autoregressive model $p(y \mid x)$
+(relative to the ground truth translation).
 
 \section{Problem Setup: Bilevel Optimization (deprecated)}
 Source sentence $x$, target sentence $y$.
