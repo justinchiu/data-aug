@@ -48,12 +48,12 @@ Abstract
 
 \section{Introduction}
 Learned models of data are often misspecified.
-When the goal of modeling is not density estimation,
+When the goal of modeling is not density estimation
 but some alternative objective, this misspecification may lead to undesirable
 behaviour under the maximum likelihood objective.
 In this note, we consider learned data augmentation techniques to edit
 each data point so that the augmented data is more amenable to a particular model class,
-while hopefully preserving the properties we care about.
+while preserving the properties we care about.
 
 A concrete example of a setup where maximum likelihood may not be desirable is
 non-autoregressive translation, which we focus on in this note.
@@ -79,6 +79,83 @@ We instead rely on neural editor models \citep{edit},
 which are a trainable alternative to data augmentation \citep{recombine}.
 
 \section{Problem Setup}
+Given a source sentence $x$, our goal in translation is to model the target sentence $y$.
+We approach this problem with the following generative model:
+\begin{itemize}
+\item Given the source sentence $x$, we choose a proposal translation
+    from a nonautoregressive (NAR) translation model  $\hat{y}\sim p(\hat{y} \mid x)$
+\item We choose a noise vector $z \sim p(z \mid x)$ from a conditional prior
+\item We choose a final translation $y \sim p(y \mid \hat{y}, z, x)$ from an edit model
+\end{itemize}
+This yields the joint distribution
+$$p(y,\hat{y},z \mid x) = p(y \mid \hat{y}, z, x)p(\hat(y) \mid x)p(z \mid x)$$
+The generative model is shown in Figure \ref{fig:gen-model}.
+
+\begin{figure}
+\centering
+\begin{subfigure}{0.48\textwidth}
+\centering
+\begin{tikzpicture}
+\node[obs]                (x)  {$x$};
+\node[latent, right=of x] (hy) {$\hat{y}$};
+\node[latent, below=of x] (z)  {$z$};
+\node[obs, right=of z]    (y)  {$y$};
+
+\edge {x} {hy};
+\edge {x} {z};
+\edge {hy,z} {y};
+\end{tikzpicture}
+\end{subfigure}
+\hfill
+\begin{subfigure}{0.48\textwidth}
+\centering
+\begin{tikzpicture}
+\node[obs]                (x)  {$x$};
+\node[latent, right=of x] (hy) {$\hat{y}$};
+\node[latent, below=of x] (z)  {$z$};
+\node[obs, right=of z]    (y)  {$y$};
+
+\edge {x,y,z} {hy};
+\edge {x,y} {z};
+\end{tikzpicture}
+\end{subfigure}
+
+\caption{
+\label{fig:gen-model}
+The graphical model for the generative model (left)
+and approximate posterior (right).
+}
+\end{figure}
+
+For training, optimizing the log marginal likelihood of the translation
+$$p(y \mid x) = \sum_{\hat{y}}\int_z p(y,\hat{y}, z \mid x),$$
+is intractable due to the combinatorial space of possible translations and
+the integral over $z$.
+We instead resort to approximate inference, in particular variational inference.
+We introduce the approximate posteriors $q(z \mid y, x)$ and $q(\hat{y} \mid z, y, x)$,
+yielding the following lower bound
+$$
+\begin{aligned}
+\log p(y \mid x) &= \log \sum_{\hat{y}}\int_z p(y,\hat{y}, z \mid x)\\
+&= \log \sum_{\hat{y}}\int_z
+    q(\hat{y} \mid z, y, x)q(z \mid x)
+    \frac{p(y,\hat{y}, z \mid x)}{q(\hat{y} \mid z, y, x)q(z \mid x)}\\
+&\ge \sum_{\hat{y}}\int_z
+    q(\hat{y} \mid z, y, x)q(z \mid x)
+    \log \frac{p(y,\hat{y}, z \mid x)}{q(\hat{y} \mid z, y, x)q(z \mid x)}\\
+&= \Es{q(\hat{y} \mid z, y, x)q(z \mid x)}
+{\log \frac{p(y,\hat{y}, z \mid x)}{q(\hat{y} \mid z, y, x)q(z \mid x)}}\\
+&= \Es{q(\hat{y} \mid z, y, x)q(z \mid x)}
+{\log p(y\mid \hat{y}, z \mid x)}
+-\KL{q(\hat{y} \mid z, y, x) || p(\hat{y} \mid x)}
+-\KL{q(z \mid y, x) || p(z \mid x)}.
+\end{aligned}
+$$
+We use the pathwise gradient estimator for $q(z \mid y, x)$
+and REINFORCE for $q(\hat{y} \mid z, y, x)$.
+
+
+\section{Problem Setup: Bilevel Optimization}
 Source sentence $x$, target sentence $y$.
 True translation distribution $p(y \mid x)$.
 
@@ -262,17 +339,6 @@ and end of training (right) with an even true data distribution.
 }
 \end{figure}
 
-
-
-\section*{Decoding: work back into problem setup later}
-Given data consisting of $(x,y)$ pairs, our goal is to learn a model $q_\theta(y \mid x)$
-such that it maximizes the functional
-\begin{equation}
-    \label{eqn:obj}
-    F(q) = \Es{p(x,y)}{\argmax_{\hat{y}}d(q_\theta(\hat{y} \mid x), y)},
-\end{equation}
-where $p(x,y)$ is the data distribution and $d$ is some measure of correctness between our
-prediction $\hat{y}$ and the true output $y$.
 
 \bibliography{bib}
 
