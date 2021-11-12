@@ -217,7 +217,7 @@ Find the dataset $\hat{Y} = (\hat{y}_i)_i$ by solving
 \begin{equation}
     \begin{aligned}
     \textnormal{minimize }& \sum_i \log q(\hat{y}_i \mid x)\\
-    \textnormal{subject to } & \sum_i \log\frac{p(y_i \mid x)}{p(\hat{y}_i \mid x)} \le \epsilon,
+    \textnormal{subject to } & \sum_i \log\frac{p(y_i \mid x)}{p(\hat{y}_i \mid x)} \ge \epsilon,
     \end{aligned}
 \end{equation}
 which looks for a dataset that is high probability under a non-autoregressive student model
