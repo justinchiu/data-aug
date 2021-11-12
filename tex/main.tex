@@ -151,9 +151,48 @@ $$
 -\KL{q(z \mid y, x) || p(z \mid x)}.
 \end{aligned}
 $$
-We use the pathwise gradient estimator for $q(z \mid y, x)$
-and REINFORCE for $q(\hat{y} \mid z, y, x)$.
 
+\paragraph{Approximate edit vector posterior}
+We parameterize $q(z \mid y, x)$ with a Transformer and some continuous distribution,
+and estimate its gradient with a pathwise derivative estimator.
+Alternatively we can use a discrete distribution and REINFORCE (enumeration).
+
+\paragraph{Approximate translation proposal posterior}
+For $q(\hat{y} \mid z, y, x)$, we have a couple options for parameterization.
+Before we discuss those options, we note non-autoregressive models (both $q(\hat{y}\mid z,y,x)$
+and $p(\hat{y} \mid x)$) require first predicting length, then each word independently,
+resulting in the following factorization: $p(\hat{y}) = p(l)\prod_t(y_t \mid l)$.
+We can now cover parameterizations and gradient estimators.
+There are two axes of variation: do we perform parameter sharing,
+and do we relax estimators.
+For parameter sharing, that means we can
+\begin{itemize}
+\item Introduce new parameters for $q(\hat{y} \mid l, z, y, x)$
+\item Use the prior $q(\hat{y} \mid l, z, y, x) = p(\hat{y} \mid l, x)$
+\end{itemize}
+Additionally, we can use either the REINFORCE gradient estimator or
+use Concrete relaxations of each $p(\hat{y}_t \mid l)$.
+The latter would allow us to estimate gradients with a pathwise derivative estimator.
+The former would require some care due to high variance.
+One approach to variance reduction could be to use a baseline (self-critical, LOO, RELAX),
+in combination with sampling without replacement or stochastic beam search.
+
+\section{Experiments}
+\paragraph{Toy experiment}
+Augment PCFG-generated data into NAT.
+
+\paragraph{Improving distillation}
+Start with NAT model trained with distillation,
+and output of distillation's teacher model as $\hat{y}$.
+Run variational EM and see if anything improves.
+
+\paragraph{Improving EM+Distillation}
+Start with NAT model trained with EM+distillation,
+and output of distillation's teacher model as $\hat{y}$.
+Run variational EM and see if anything improves.
+
+\paragraph{Experiments from scratch}
+Run variational EM and see if anything happens from scratch.
 
 \section{Problem Setup: Bilevel Optimization}
 Source sentence $x$, target sentence $y$.
