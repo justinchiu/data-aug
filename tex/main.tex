@@ -43,10 +43,18 @@
 \begin{document}
 \maketitle
 \begin{abstract}
-Abstract
 \end{abstract}
 
 \section{Introduction}
+{\color{red}High level pitch}
+MLE is bad when the model is misspecified.
+Outside of language (ie in non-autoregressive image and audio synthesis),
+GANs have found success at training misspecified models.
+Within language, GANs are plagued by unstable training (high variance grad estimators).
+However, seq-KD approaches, which also serve to simplify data, have been successful.
+We seek to improve upon seq-KD, which does not take into account the model we wish to train.
+{\color{red}/High level pitch}
+
 Learned models of data are often misspecified.
 When the goal of modeling is not density estimation
 but some alternative objective, this misspecification may lead to undesirable
@@ -214,9 +222,9 @@ Run variational EM and see if anything improves.
 \paragraph{Experiments from scratch}
 Run variational EM and see if anything happens from scratch.
 
-\section{Problem Setup: Search (Only)}
-Fix the teacher model, frame the problem following \citet{emnat}:
-Find the dataset $\hat{Y} = (\hat{y}_i)_i$ by solving
+\section{A Closer Look at Search}
+If we fix the teacher model, we can frame the problem following the formulation by \citet{emnat}:
+Our goal is to find the dataset $\hat{Y} = (\hat{y}_i)_i$ by solving
 \begin{equation}
     \begin{aligned}
     \textnormal{minimize }& \sum_i \log q(\hat{y}_i \mid x)\\
@@ -226,6 +234,19 @@ Find the dataset $\hat{Y} = (\hat{y}_i)_i$ by solving
 which looks for a dataset that is high probability under a non-autoregressive student model
 $q(y \mid x)$, but also high probability under a baseline autoregressive model $p(y \mid x)$
 (relative to the ground truth translation).
+
+This optimization problem could potentially be solved only via search.
+However, in practice, this would require searching over the exponentially large search space
+of translations $y$ for each source sentence $x$.
+However, we can use the constraint to prune much of the search space.
+Similar to the admissible heuristic used by \citet{catgotyourtongue} to perform
+exact search, we hope that the constraint prunes enough of the search space to make optimization
+tractable.
+{\color{red}Get this empirically: find out how much of the beam /proposals satisfy constraint}.
+
+{\color{red}Is there a way to formalize modes?}
+
+{\color{red}Exploring modes with editor model}
 
 \section{Problem Setup: Bilevel Optimization (not updated)}
 Source sentence $x$, target sentence $y$.
