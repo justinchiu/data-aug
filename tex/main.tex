@@ -219,26 +219,63 @@ Start with NAT model trained with EM+distillation,
 and output of distillation's teacher model as $\hat{y}$.
 Run variational EM and see if anything improves.
 
-\paragraph{Experiments from scratch}
-Run variational EM and see if anything happens from scratch.
+\paragraph{Denoising Data2Text}
+Data2Text datasets often contain noisy text that is not represented in the data.
+Can we learn to filter that out?
+How would we measure success?
 
 \section{A Closer Look at Search}
 If we fix the teacher model, we can frame the problem following the formulation by \citet{emnat}:
 Our goal is to find the dataset $\hat{Y} = (\hat{y}_i)_i$ by solving
 \begin{equation}
     \begin{aligned}
-    \textnormal{minimize }& \sum_i \log q(\hat{y}_i \mid x)\\
-    \textnormal{subject to } & \log\frac{p(y_i \mid x)}{p(\hat{y}_i \mid x)} \le \epsilon, \forall i,
+    \max_{\hat{Y}}& \max_q \sum_i \log q(\hat{y}_i \mid x)\\
+    \textnormal{subject to } & \log\frac{p(y_i \mid x)}{p(\hat{y}_i \mid x)}
+        \le \epsilon, \forall i,
     \end{aligned}
 \end{equation}
 which looks for a dataset that is high probability under a non-autoregressive student model
 $q(y \mid x)$, but also high probability under a baseline autoregressive model $p(y \mid x)$
 (relative to the ground truth translation).
 
-This optimization problem could potentially be solved only via search.
-However, in practice, this would require searching over the exponentially large search space
-of translations $y$ for each source sentence $x$.
-However, we can use the constraint to prune much of the search space.
+We approach this bilevel optimization problem via an iterative method.
+At each iteration, we generate a new dataset $\hat{Y}$ by, for each example $x_i \in X$,
+generating $J$ translations $y_{i,j}$ that satisfy the likelihood ratio constraint.
+We then solve the following problem to determine which examples to keep:
+\begin{equation}
+    \begin{aligned}
+    \textnormal{maximize }& \max_q \sum_i \sum_j \alpha_{i,j}  \log q(\hat{y}_{i,j} \mid x)\\
+    \textnormal{subject to } & \log\frac{p(y_i \mid x)}{p(\hat{y}_i \mid x)}
+        \le \epsilon, \forall i,\\
+        & \sum_j \alpha_{i,j} = 1, \forall i, \\
+        & \alpha_{i,j} > 0, \forall i,j,
+    \end{aligned}
+\end{equation}
+where the parameter of interest $\alpha$ is a vector of weights
+corresponding to each generated datapoint.
+We can use methods in bilevel optimization to solve this problem.
+For the next iteration, we seed search for each example $x_i$
+using the generated $\hat{y}_{i,j}$ with the highest score $\alpha_{i,j}$.
+
+In order to generate $\hat{Y}$ for each iteration, we perform DFS.
+At each iteration, sample a subset of indices $I \subset \mcI$ (sorry, undefined notation).
+For that subset, perform DFS until $J$ examples that satisfy the likelihood ratio constraint
+are found (throw in some random samples from past search). Save the stack (memory!).
+Resume from the given stack when further examples are needed.
+
+While we can prune the search space using the likelihood ratio constraint,
+there will likely be many examples that satisfy the constraint but are not suitable for
+the student model $q$.
+Additionally, the student model $q$ ties the datapoints $\hat{y}_i$ together globally,
+meaning that an example may not have been good given the other examples,
+but changing the other examples may lead to a globally better dataset.
+Unfortunately, solving this exactly is intractable, so we are stuck with our heuristic.
+
+{\color{red}addled}
+We look to search to solve this problem.
+However, in practice, the search space is exponentially large and infinite, consisting
+of all translations $y$ for each source sentence $x$.
+However, we can use the log-odds constraint to prune much of the search space.
 Similar to the admissible heuristic used by \citet{catgotyourtongue} to perform
 exact search, we hope that the constraint prunes enough of the search space to make optimization
 tractable.
@@ -247,6 +284,21 @@ tractable.
 {\color{red}Is there a way to formalize modes?}
 
 {\color{red}Exploring modes with editor model}
+
+One issue with this is that the score under a model may not be a good indication of an
+equivalent translation. Possible fix: NLI?
+
+\section{Optimizing BLEU}
+Formulate the following optimization problem
+\begin{equation}
+\begin{aligned}
+\textnormal{maximize } \max_q \sum_i \log q(\hat{y}_i \mid x) \\
+\textnormal{subject to } \textnormal{BLEU}(y, \hat{y}) \geq \delta.
+\end{aligned}
+\end{equation}
+Unfortunately, neither the objective nor the constraint are separable.
+The objective contains a nested optimization problem, so decoupling that will not be fruitful.
+However, we can decouple an approximation of the constraint.
 
 \section{Problem Setup: Bilevel Optimization (not updated)}
 Source sentence $x$, target sentence $y$.
