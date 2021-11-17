@@ -241,18 +241,17 @@ $q(y \mid x)$, but also high probability under a baseline autoregressive model $
 We approach this bilevel optimization problem via an iterative method.
 At each iteration, we generate a new dataset $\hat{Y}$ by, for each example $x_i \in X$,
 generating $J$ translations $y_{i,j}$ that satisfy the likelihood ratio constraint.
-We then solve the following problem to determine which examples to keep:
+We then solve the following problem to determine which examples to keep,
+with the optimization variable $\alpha$ corresponding to the weight of a datapoint:
 \begin{equation}
     \begin{aligned}
     \textnormal{maximize }& \max_q \sum_i \sum_j \alpha_{i,j}  \log q(\hat{y}_{i,j} \mid x_i)\\
     \textnormal{subject to } & \log\frac{p(y_{i,j} \mid x_i)}{p(\hat{y}_i \mid x_i)}
         \le \epsilon, \forall i,j,\\
         & \sum_j \alpha_{i,j} = 1, \forall i, \\
-        & \alpha_{i,j} > 0, \forall i,j,
+        & \alpha_{i,j} > 0, \forall i,j.
     \end{aligned}
 \end{equation}
-where the parameter of interest $\alpha$ is a vector of weights
-corresponding to each generated datapoint.
 We can use methods in bilevel optimization to solve this problem.
 For the next iteration, we seed search for each example $x_i$
 using the generated $\hat{y}_{i,j}$ with the highest score $\alpha_{i,j}$.
@@ -264,6 +263,14 @@ For that subset, perform DFS until $J$ examples that satisfy the likelihood rati
 are found (throw in some random samples from past search). Save the stack (memory!).
 Resume from the given stack when further examples are needed.
 
+This is extremely memory intensive. For each example,
+we would like to store all translations that satisfy the constraint,
+and also the stack (i.e. all the next-word probabilities).
+The stack alone can take around 111 Gb of memory for a small translation dataset
+(167k sentences, average length of 30, 24k vocab).
+A common approach to saving memory is the use of amortized Monte Carlo methods.
+
+Things to look out for?
 While we can prune the search space using the likelihood ratio constraint,
 there will likely be many examples that satisfy the constraint but are not suitable for
 the student model $q$.
