@@ -197,7 +197,7 @@ In particular, we can use posterior regularization.
 This could entail adding an expectation constraint that ensures that the
 approximate translation proposal posterior does not deviate too far from a pretrained
 translation model $p^*(y \mid x)$ trained via normal means:
-$$\Es{q(\hat{y} \mid z, y, x)}{ \log \frac{q(\hat{y} \mid z, y, x)}{p^*(\hat{y} \mid x)} \le \epsilon}.$$
+$$\Es{q(\hat{y} \mid z, y, x)}{ \log \frac{q(\hat{y} \mid z, y, x)}{p^*(\hat{y} \mid x)} \le \delta}.$$
 
 Alternatively, we can fix a pretrained NAT prior $p(\hat{y}\mid x)$ and
 train the edit model to completion, then train another model on the generated data.
@@ -231,7 +231,7 @@ Our goal is to find the dataset $\hat{Y} = (\hat{y}_i)_i$ by solving
     \begin{aligned}
     \max_{\hat{Y}}& \max_q \sum_i \log q(\hat{y}_i \mid x_i)\\
     \textnormal{subject to } & \log\frac{p(y_i \mid x_i)}{p(\hat{y}_i \mid x_i)}
-        \le \epsilon, \forall i,
+        \le \delta, \forall i,
     \end{aligned}
 \end{equation}
 which looks for a dataset that is high probability under a non-autoregressive student model
@@ -247,7 +247,7 @@ with the optimization variable $\alpha$ corresponding to the weight of a datapoi
     \begin{aligned}
     \textnormal{maximize }& \max_q \sum_i \sum_j \alpha_{i,j}  \log q(\hat{y}_{i,j} \mid x_i)\\
     \textnormal{subject to } & \log\frac{p(y_{i,j} \mid x_i)}{p(\hat{y}_i \mid x_i)}
-        \le \epsilon, \forall i,j,\\
+        \le \delta, \forall i,j,\\
         & \sum_j \alpha_{i,j} = 1, \forall i, \\
         & \alpha_{i,j} > 0, \forall i,j.
     \end{aligned}
