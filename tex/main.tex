@@ -257,7 +257,8 @@ We can use methods in bilevel optimization to solve this problem.
 For the next iteration, we seed search for each example $x_i$
 using the generated $\hat{y}_{i,j}$ with the highest score $\alpha_{i,j}$.
 
-In order to generate $\hat{Y}$ for each iteration, we perform DFS.
+In order to generate $\hat{Y}$ for each iteration, we perform DFS using the teacher
+model $p(y \mid x)$.
 At each iteration, sample a subset of indices $I \subset \mcI$ (sorry, undefined notation).
 For that subset, perform DFS until $J$ examples that satisfy the likelihood ratio constraint
 are found (throw in some random samples from past search). Save the stack (memory!).
