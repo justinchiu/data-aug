@@ -245,8 +245,8 @@ We then solve the following problem to determine which examples to keep:
 \begin{equation}
     \begin{aligned}
     \textnormal{maximize }& \max_q \sum_i \sum_j \alpha_{i,j}  \log q(\hat{y}_{i,j} \mid x)\\
-    \textnormal{subject to } & \log\frac{p(y_i \mid x)}{p(\hat{y}_i \mid x)}
-        \le \epsilon, \forall i,\\
+    \textnormal{subject to } & \log\frac{p(y_{i,j} \mid x)}{p(\hat{y}_i \mid x)}
+        \le \epsilon, \forall i,j,\\
         & \sum_j \alpha_{i,j} = 1, \forall i, \\
         & \alpha_{i,j} > 0, \forall i,j,
     \end{aligned}
