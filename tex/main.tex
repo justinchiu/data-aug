@@ -229,8 +229,8 @@ If we fix the teacher model, we can frame the problem following the formulation 
 Our goal is to find the dataset $\hat{Y} = (\hat{y}_i)_i$ by solving
 \begin{equation}
     \begin{aligned}
-    \max_{\hat{Y}}& \max_q \sum_i \log q(\hat{y}_i \mid x)\\
-    \textnormal{subject to } & \log\frac{p(y_i \mid x)}{p(\hat{y}_i \mid x)}
+    \max_{\hat{Y}}& \max_q \sum_i \log q(\hat{y}_i \mid x_i)\\
+    \textnormal{subject to } & \log\frac{p(y_i \mid x_i)}{p(\hat{y}_i \mid x_i)}
         \le \epsilon, \forall i,
     \end{aligned}
 \end{equation}
@@ -244,8 +244,8 @@ generating $J$ translations $y_{i,j}$ that satisfy the likelihood ratio constrai
 We then solve the following problem to determine which examples to keep:
 \begin{equation}
     \begin{aligned}
-    \textnormal{maximize }& \max_q \sum_i \sum_j \alpha_{i,j}  \log q(\hat{y}_{i,j} \mid x)\\
-    \textnormal{subject to } & \log\frac{p(y_{i,j} \mid x)}{p(\hat{y}_i \mid x)}
+    \textnormal{maximize }& \max_q \sum_i \sum_j \alpha_{i,j}  \log q(\hat{y}_{i,j} \mid x_i)\\
+    \textnormal{subject to } & \log\frac{p(y_{i,j} \mid x_i)}{p(\hat{y}_i \mid x_i)}
         \le \epsilon, \forall i,j,\\
         & \sum_j \alpha_{i,j} = 1, \forall i, \\
         & \alpha_{i,j} > 0, \forall i,j,
