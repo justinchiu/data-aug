@@ -63,7 +63,7 @@ In this note, we consider learned data augmentation techniques to edit
 each data point so that the augmented data is more amenable to a particular model class,
 while preserving the properties we care about.
 
-A concrete example of a setup where maximum likelihood may not be desirable is
+A concrete example where maximum likelihood may not be desirable is
 non-autoregressive translation, which we focus on in this note.
 In translation, the goal is to translate a source sentence from one language
 into a sentence in a different target language.
@@ -85,6 +85,173 @@ We aim to resolve this via data augmentation.
 Prior work shows that distillation is a successful data augmentation approach.
 We instead rely on neural editor models \citep{edit},
 which are a trainable alternative to data augmentation \citep{recombine}.
+
+\section{Problem Setup}
+Given a source sentence $x$, our goal in translation is to model the target sentence $y$.
+Our goal is to train a mis-specified non-autoregressive (NAR) model,
+$$q(y \mid x) = q(T)\prod_{t=1}^T q(y_t \mid x),$$
+which, following the knowledge distillation literature, we refer to as the student.
+As the maximum likelihood estimate (MLE) of the parameters exhibits poor characteristics,
+in particular poor performance on the primary evaluation metric for translation BLEU,
+we instead turn to minimizing the reverse KL between the student distribution $q(y\mid x)$
+and the true distribution $p^*(y \mid x)$:
+\begin{equation}
+\begin{aligned}
+\Es{p^*(x)}{\KL{q(y \mid x) || p^*(y \mid x)}}
+&= \sum_x p^*(x)\sum_y q(y \mid x) \log \frac{q(y\ \mid x)}{p^*(y \mid x)}\\
+&= \Es{p^*(x)}{H(q(y \mid x)) - \sum_y q(y \mid x) \log p^*(y \mid x)}.
+\end{aligned}
+\end{equation}
+This objective allows us to ignore difficult-to-model examples from the true distribution,
+$p^*(y \mid x)$.
+Unfortunately, the true distribution is unobservable.
+We instead assume that we have a reasonable approximation of the true distribution, $p(y \mid x)$,
+which we refer to as the teacher distribution, and optimize the following:
+\begin{equation}
+\label{eqn:rev-kl}
+\Es{p^*(x)}{\KL{q(y \mid x) || p(y \mid x)}}
+= \Es{p^*(x)}{H[q(y\mid x)] - \sum_y q(y \mid x) \log p(y \mid x)}.
+\end{equation}
+While both the entropy of the student and cross-entropy between the student and teacher are
+calculable in theory, the space of translations $y$ is extremely large.
+
+\section{Related work}
+Amortized inference is one method of optimizing such an objective.
+Recent work has cast the NAR student model as an inference network,
+and directly trained it to minimize the reverse KL in Equation \ref{eqn:rev-kl}
+via stochastic gradient descent \citep{engine}.
+Instead of utilizing the high-variance REINFORCE gradient estimator,
+they instead use biased but lower variance estimators.
+By performing grid search over different estimators,
+they found that simple non-stochastic estimators such as a deterministic continuous relaxations
+via softmax as well as the Straight-Through estimator work best.
+This particular line of work can be interpreted as primarily searching over
+the space of student parameters.
+The search over translations is relaxed into continuous space,
+allowing for effective gradient estimation given the non-autoregressive student model.
+Additionally, the student model is initialized with the MLE parameters.
+The objective is given by
+\begin{equation}
+\minimize_{q(y \mid x)} \sum_x E(x, q(y \mid x)),
+\end{equation}
+where $E(x, y) = \log p(y \mid x)$, and the output of $q(x)$ is a $T \times V$ matrix,
+normalized over columns, giving the probabilities of each word in the translation.
+The energy function $E$ is relaxed to directly operate on the probabilities,
+rather than on discrete outputs.
+
+A similar approach is based on sequence-level distillation.
+Rather than primarily searching over the space of parameters,
+\citet{emnat} jointly search over the space of autoregressive teacher parameters,
+non-autoregressive student parameters, as well as translations,
+by iteratively distilling and searching.
+Unfortunately, this approach is vastly outperformed by the aforementioned work
+which avoids searching over teacher parameters and translations,
+and focuses directly on searching over student parameters.
+
+Other work has attempted to attempted to optimize objectives that do not require
+full coverage of the true distribution.
+Work on language generative adversarial networks in particular has attempted to
+optimize generators and discriminators from scratch using REINFORCE \citet{scratchgan}.
+The objective optimized in this work, called ScratchGAN, is primarily concerned with
+marginal language modeling, and is given by
+\begin{equation}
+\minimize_{q(x)} \maximize_{D} \Es{p^*(x)}{\log D(x)} + \Es{q(x)}{\log (1-D(x))},
+\end{equation}
+where $q(x)$ is the generator and $D$ is the discriminator.
+This line of work searches over the space of student parameters, discriminators,
+as well as translations (via sampling, as seen by the expectations).
+
+From these works, we see that the larger the search space, the harder the optimization problem.
+We aim to build upon the method of \citet{engine}, expanding the search space
+to the space of translations and ablating the continuous relaxation.
+
+\section{A Closer Look at Search}
+The most successful approach to optimizing reverse KL avoided the problem of search over language
+by using a continuous relaxation and instead focused on search over student parameters.
+We wish emphasize search over language, or formally the summation over translations
+$y$ in Equation \ref{eqn:rev-kl}.
+
+Our objective is inspired by reverse KL.
+Instead of directly optimizing the reverse KL,
+we introduce auxiliary variables $\hat{Y} = (\hat{y}_i)_i$,
+which will serve as new translations for each example $i$
+for the student $q$ to be trained on.
+Our goal is to find the dataset $\hat{Y}$ by solving
+\begin{equation}
+    \maximize_{\hat{Y}} \max_q \sum_i  q(\hat{y}_i \mid x_i) \log p(\hat{y}_i \mid x_i),
+\end{equation}
+which is the negative reverse KL without an entropy term.
+
+
+\begin{equation}
+    \begin{aligned}
+    \maximize_{\hat{Y}}& \max_q \sum_i \log q(\hat{y}_i \mid x_i)\\
+    \textnormal{subject to } & \log\frac{p(y_i \mid x_i)}{p(\hat{y}_i \mid x_i)}
+        \le \delta, \forall i,
+    \end{aligned}
+\end{equation}
+which looks for a dataset that is high probability under a non-autoregressive student model
+$q(y \mid x)$, but also high probability under a baseline autoregressive model $p(y \mid x)$
+(relative to the ground truth translation).
+
+We approach this bilevel optimization problem via an iterative method.
+At each iteration, we generate a new dataset $\hat{Y}$ by, for each example $x_i \in X$,
+generating $J$ translations $y_{i,j}$ that satisfy the likelihood ratio constraint.
+We then solve the following problem to determine which examples to keep,
+with the optimization variable $\alpha$ corresponding to the weight of a datapoint:
+\begin{equation}
+    \begin{aligned}
+    \textnormal{maximize }& \max_q \sum_i \sum_j \alpha_{i,j}  \log q(\hat{y}_{i,j} \mid x_i)\\
+    \textnormal{subject to } & \log\frac{p(y_{i,j} \mid x_i)}{p(\hat{y}_i \mid x_i)}
+        \le \delta, \forall i,j,\\
+        & \sum_j \alpha_{i,j} = 1, \forall i, \\
+        & \alpha_{i,j} > 0, \forall i,j.
+    \end{aligned}
+\end{equation}
+We can use methods in bilevel optimization to solve this problem.
+For the next iteration, we seed search for each example $x_i$
+using the generated $\hat{y}_{i,j}$ with the highest score $\alpha_{i,j}$.
+
+In order to generate $\hat{Y}$ for each iteration, we perform DFS using the teacher
+model $p(y \mid x)$.
+At each iteration, sample a subset of indices $I \subset \mcI$ (sorry, undefined notation).
+For that subset, perform DFS until $J$ examples that satisfy the likelihood ratio constraint
+are found (throw in some random samples from past search). Save the stack (memory!).
+Resume from the given stack when further examples are needed.
+
+This is extremely memory intensive. For each example,
+we would like to store all translations that satisfy the constraint,
+and also the stack (i.e. all the next-word probabilities).
+The stack alone can take around 111 Gb of memory for a small translation dataset
+(167k sentences, average length of 30, 24k vocab).
+A common approach to saving memory is the use of amortized Monte Carlo methods.
+
+Things to look out for?
+While we can prune the search space using the likelihood ratio constraint,
+there will likely be many examples that satisfy the constraint but are not suitable for
+the student model $q$.
+Additionally, the student model $q$ ties the datapoints $\hat{y}_i$ together globally,
+meaning that an example may not have been good given the other examples,
+but changing the other examples may lead to a globally better dataset.
+Unfortunately, solving this exactly is intractable, so we are stuck with our heuristic.
+
+{\color{red}addled}
+We look to search to solve this problem.
+However, in practice, the search space is exponentially large and infinite, consisting
+of all translations $y$ for each source sentence $x$.
+However, we can use the log-odds constraint to prune much of the search space.
+Similar to the admissible heuristic used by \citet{catgotyourtongue} to perform
+exact search, we hope that the constraint prunes enough of the search space to make optimization
+tractable.
+{\color{red}Get this empirically: find out how much of the beam /proposals satisfy constraint}.
+
+{\color{red}Is there a way to formalize modes?}
+
+{\color{red}Exploring modes with editor model}
+
+One issue with this is that the score under a model may not be a good indication of an
+equivalent translation. Possible fix: NLI?
+
 
 \section{Problem Setup}
 Given a source sentence $x$, our goal in translation is to model the target sentence $y$.
@@ -223,78 +390,6 @@ Run variational EM and see if anything improves.
 Data2Text datasets often contain noisy text that is not represented in the data.
 Can we learn to filter that out?
 How would we measure success?
-
-\section{A Closer Look at Search}
-If we fix the teacher model, we can frame the problem following the formulation by \citet{emnat}:
-Our goal is to find the dataset $\hat{Y} = (\hat{y}_i)_i$ by solving
-\begin{equation}
-    \begin{aligned}
-    \max_{\hat{Y}}& \max_q \sum_i \log q(\hat{y}_i \mid x_i)\\
-    \textnormal{subject to } & \log\frac{p(y_i \mid x_i)}{p(\hat{y}_i \mid x_i)}
-        \le \delta, \forall i,
-    \end{aligned}
-\end{equation}
-which looks for a dataset that is high probability under a non-autoregressive student model
-$q(y \mid x)$, but also high probability under a baseline autoregressive model $p(y \mid x)$
-(relative to the ground truth translation).
-
-We approach this bilevel optimization problem via an iterative method.
-At each iteration, we generate a new dataset $\hat{Y}$ by, for each example $x_i \in X$,
-generating $J$ translations $y_{i,j}$ that satisfy the likelihood ratio constraint.
-We then solve the following problem to determine which examples to keep,
-with the optimization variable $\alpha$ corresponding to the weight of a datapoint:
-\begin{equation}
-    \begin{aligned}
-    \textnormal{maximize }& \max_q \sum_i \sum_j \alpha_{i,j}  \log q(\hat{y}_{i,j} \mid x_i)\\
-    \textnormal{subject to } & \log\frac{p(y_{i,j} \mid x_i)}{p(\hat{y}_i \mid x_i)}
-        \le \delta, \forall i,j,\\
-        & \sum_j \alpha_{i,j} = 1, \forall i, \\
-        & \alpha_{i,j} > 0, \forall i,j.
-    \end{aligned}
-\end{equation}
-We can use methods in bilevel optimization to solve this problem.
-For the next iteration, we seed search for each example $x_i$
-using the generated $\hat{y}_{i,j}$ with the highest score $\alpha_{i,j}$.
-
-In order to generate $\hat{Y}$ for each iteration, we perform DFS using the teacher
-model $p(y \mid x)$.
-At each iteration, sample a subset of indices $I \subset \mcI$ (sorry, undefined notation).
-For that subset, perform DFS until $J$ examples that satisfy the likelihood ratio constraint
-are found (throw in some random samples from past search). Save the stack (memory!).
-Resume from the given stack when further examples are needed.
-
-This is extremely memory intensive. For each example,
-we would like to store all translations that satisfy the constraint,
-and also the stack (i.e. all the next-word probabilities).
-The stack alone can take around 111 Gb of memory for a small translation dataset
-(167k sentences, average length of 30, 24k vocab).
-A common approach to saving memory is the use of amortized Monte Carlo methods.
-
-Things to look out for?
-While we can prune the search space using the likelihood ratio constraint,
-there will likely be many examples that satisfy the constraint but are not suitable for
-the student model $q$.
-Additionally, the student model $q$ ties the datapoints $\hat{y}_i$ together globally,
-meaning that an example may not have been good given the other examples,
-but changing the other examples may lead to a globally better dataset.
-Unfortunately, solving this exactly is intractable, so we are stuck with our heuristic.
-
-{\color{red}addled}
-We look to search to solve this problem.
-However, in practice, the search space is exponentially large and infinite, consisting
-of all translations $y$ for each source sentence $x$.
-However, we can use the log-odds constraint to prune much of the search space.
-Similar to the admissible heuristic used by \citet{catgotyourtongue} to perform
-exact search, we hope that the constraint prunes enough of the search space to make optimization
-tractable.
-{\color{red}Get this empirically: find out how much of the beam /proposals satisfy constraint}.
-
-{\color{red}Is there a way to formalize modes?}
-
-{\color{red}Exploring modes with editor model}
-
-One issue with this is that the score under a model may not be a good indication of an
-equivalent translation. Possible fix: NLI?
 
 \section{Optimizing BLEU}
 Formulate the following optimization problem
