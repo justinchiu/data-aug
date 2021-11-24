@@ -167,25 +167,34 @@ to the space of translations and ablating the continuous relaxation.
 
 \section{A Closer Look at Search}
 The most successful approach to optimizing reverse KL avoided the problem of search over language
-by using a continuous relaxation and instead focused on search over student parameters.
+by using a continuous relaxation and instead focused on search over student parameters
+\citep{engine}.
 We wish emphasize search over language, or formally the summation over translations
 $y$ in Equation \ref{eqn:rev-kl}.
 
 Our objective is inspired by reverse KL.
 Instead of directly optimizing the reverse KL,
 we introduce auxiliary variables $\hat{Y} = (\hat{y}_i)_i$,
-which will serve as new translations for each example $i$
+which will serve as new translations for each example $x_i$
 for the student $q$ to be trained on.
 Our goal is to find the dataset $\hat{Y}$ by solving
 \begin{equation}
     \maximize_{\hat{Y}} \max_q \sum_i  q(\hat{y}_i \mid x_i) \log p(\hat{y}_i \mid x_i),
 \end{equation}
 which is the negative reverse KL without an entropy term.
+Removing the entropy term results in $q$ being allowed to choose
+a single translation $\hat{y}_i$ for each example.
+This is important for a more accurate $q$,
+as we assumed that $q$ was non-autoregressive
+and therefore cannot model ambiguity beyond a single word.
 
-
+The above objective is sensitive to the reference model $p$,
+so we can instead solve the following problem
 \begin{equation}
     \begin{aligned}
     \maximize_{\hat{Y}}& \max_q \sum_i \log q(\hat{y}_i \mid x_i)\\
+    %\textnormal{subject to } & \log\frac{p(y_i \mid x_i)}{p(\hat{y}_i \mid x_i)}
+        %\le \delta, \forall i,
     \textnormal{subject to } & \log\frac{p(y_i \mid x_i)}{p(\hat{y}_i \mid x_i)}
         \le \delta, \forall i,
     \end{aligned}
@@ -193,6 +202,8 @@ which is the negative reverse KL without an entropy term.
 which looks for a dataset that is high probability under a non-autoregressive student model
 $q(y \mid x)$, but also high probability under a baseline autoregressive model $p(y \mid x)$
 (relative to the ground truth translation).
+The usage of the constraint as opposed to directly optimizing $\log p(\hat{y} \mid x)$
+gives some slack, allowing for the use of sub-optimal reference models $p$.
 
 We approach this bilevel optimization problem via an iterative method.
 At each iteration, we generate a new dataset $\hat{Y}$ by, for each example $x_i \in X$,
@@ -201,7 +212,7 @@ We then solve the following problem to determine which examples to keep,
 with the optimization variable $\alpha$ corresponding to the weight of a datapoint:
 \begin{equation}
     \begin{aligned}
-    \textnormal{maximize }& \max_q \sum_i \sum_j \alpha_{i,j}  \log q(\hat{y}_{i,j} \mid x_i)\\
+    \maximize_\alpha & \max_q \sum_i \sum_j \alpha_{i,j}  \log q(\hat{y}_{i,j} \mid x_i)\\
     \textnormal{subject to } & \log\frac{p(y_{i,j} \mid x_i)}{p(\hat{y}_i \mid x_i)}
         \le \delta, \forall i,j,\\
         & \sum_j \alpha_{i,j} = 1, \forall i, \\
@@ -211,6 +222,16 @@ with the optimization variable $\alpha$ corresponding to the weight of a datapoi
 We can use methods in bilevel optimization to solve this problem.
 For the next iteration, we seed search for each example $x_i$
 using the generated $\hat{y}_{i,j}$ with the highest score $\alpha_{i,j}$.
+
+We can also resort to approximations of bilevel optimization.
+The inner maximization of $q$ couples all the elements of $\alpha$ together.
+One example may contain information that is useful for modeling other examples as well.
+However, if we make the simplifying assumption that this is not the case,
+then, treating $q$ as a constant, maximizing $\alpha$ would entail
+picking the highest scoring $\hat{y}$ under $q$.
+This entails training $q$ on the new dataset,
+and retaining the highest scoring examples under the new model.
+We refer to this as a greedy approximation.
 
 In order to generate $\hat{Y}$ for each iteration, we perform DFS using the teacher
 model $p(y \mid x)$.
