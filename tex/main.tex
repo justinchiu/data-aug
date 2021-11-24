@@ -172,13 +172,14 @@ by using a continuous relaxation and instead focused on search over student para
 We wish emphasize search over language, or formally the summation over translations
 $y$ in Equation \ref{eqn:rev-kl}.
 
-Our objective is inspired by reverse KL.
+Our objective is inspired by the reverse KL.
 Instead of directly optimizing the reverse KL,
 we introduce auxiliary variables $\hat{Y} = (\hat{y}_i)_i$,
 which will serve as new translations for each example $x_i$
 for the student $q$ to be trained on.
 Our goal is to find the dataset $\hat{Y}$ by solving
 \begin{equation}
+    \label{eqn:blah}
     \maximize_{\hat{Y}} \max_q \sum_i  q(\hat{y}_i \mid x_i) \log p(\hat{y}_i \mid x_i),
 \end{equation}
 which is the negative reverse KL without an entropy term.
@@ -188,15 +189,16 @@ This is important for a more accurate $q$,
 as we assumed that $q$ was non-autoregressive
 and therefore cannot model ambiguity beyond a single word.
 
-The above objective is sensitive to the reference model $p$,
+\begin{comment}
+Objective \ref{eqn:blah} is sensitive to the reference model $p$,
 so we can instead solve the following problem
 \begin{equation}
     \begin{aligned}
     \maximize_{\hat{Y}}& \max_q \sum_i \log q(\hat{y}_i \mid x_i)\\
-    %\textnormal{subject to } & \log\frac{p(y_i \mid x_i)}{p(\hat{y}_i \mid x_i)}
-        %\le \delta, \forall i,
     \textnormal{subject to } & \log\frac{p(y_i \mid x_i)}{p(\hat{y}_i \mid x_i)}
         \le \delta, \forall i,
+    %\textnormal{subject to } & \log p(y_i \mid x_i) - \delta \le \log p(\hat{y}_i \mid x_i),
+        %\forall i,
     \end{aligned}
 \end{equation}
 which looks for a dataset that is high probability under a non-autoregressive student model
@@ -204,38 +206,26 @@ $q(y \mid x)$, but also high probability under a baseline autoregressive model $
 (relative to the ground truth translation).
 The usage of the constraint as opposed to directly optimizing $\log p(\hat{y} \mid x)$
 gives some slack, allowing for the use of sub-optimal reference models $p$.
+\end{comment}
 
-We approach this bilevel optimization problem via an iterative method.
-At each iteration, we generate a new dataset $\hat{Y}$ by, for each example $x_i \in X$,
-generating $J$ translations $y_{i,j}$ that satisfy the likelihood ratio constraint.
-We then solve the following problem to determine which examples to keep,
-with the optimization variable $\alpha$ corresponding to the weight of a datapoint:
+We solve this problem by coordinate ascent, iteratively optimizing over $\hat{Y}$ and $q$.
+At iteration $t$, we first find $\hat{Y}^t$ given $q^{t-1}$.
+To optimize over $\hat{Y}^t$, we use greedy hill-climbing.
+At each iteration, we generate $\hat{Y}^t$
+by performing search using the teacher model $p(y \mid x)$ and scoring with $q^{t-1}$.
+For each example $x_i$, we search for a set of $J-1$ candidate translations that score higher
+than the highest scoring translations from $\hat{Y}^{t-1}$,
+i.e. have high $q^{t-1}(\hat{y} \mid x)\log p(\hat{y} \mid x)$.\footnote{
+Also might have to keep track of high scoring under $q$ and $p$ separately,
+since $q$ will be changing.
+}
+Given $\hat{Y}^t$, we then find $q^t$ by optimizing
 \begin{equation}
-    \begin{aligned}
-    \maximize_\alpha & \max_q \sum_i \sum_j \alpha_{i,j}  \log q(\hat{y}_{i,j} \mid x_i)\\
-    \textnormal{subject to } & \log\frac{p(y_{i,j} \mid x_i)}{p(\hat{y}_i \mid x_i)}
-        \le \delta, \forall i,j,\\
-        & \sum_j \alpha_{i,j} = 1, \forall i, \\
-        & \alpha_{i,j} > 0, \forall i,j.
-    \end{aligned}
+    \maximize_{q^t} \sum_i \sum_j q^t(\hat{y}_{i,j} \mid x_i) \log p(\hat{y}_{i,j} \mid x_i).
 \end{equation}
-We can use methods in bilevel optimization to solve this problem.
-For the next iteration, we seed search for each example $x_i$
-using the generated $\hat{y}_{i,j}$ with the highest score $\alpha_{i,j}$.
 
-We can also resort to approximations of bilevel optimization.
-The inner maximization of $q$ couples all the elements of $\alpha$ together.
-One example may contain information that is useful for modeling other examples as well.
-However, if we make the simplifying assumption that this is not the case,
-then, treating $q$ as a constant, maximizing $\alpha$ would entail
-picking the highest scoring $\hat{y}$ under $q$.
-This entails training $q$ on the new dataset,
-and retaining the highest scoring examples under the new model.
-We refer to this as a greedy approximation.
 
-In order to generate $\hat{Y}$ for each iteration, we perform DFS using the teacher
-model $p(y \mid x)$.
-At each iteration, sample a subset of indices $I \subset \mcI$ (sorry, undefined notation).
+{\color{red}deprecated}
 For that subset, perform DFS until $J$ examples that satisfy the likelihood ratio constraint
 are found (throw in some random samples from past search). Save the stack (memory!).
 Resume from the given stack when further examples are needed.
