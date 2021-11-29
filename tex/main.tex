@@ -271,7 +271,11 @@ $$
 [\mu_{t,T}]_{y'} = \sum_y 1(y_t = y')\frac{\exp(\langle\theta,\phi(y)\rangle)}{Z} \log p(y)
 = \Es{q}{\log p(y) \mid y_t = y', |y| = T}.
 $$
-Hm, this is not what I wanted. Redo, try to remove dependence on $T$.
+Hm, this is not what I wanted. Redo, try to remove dependence on $T$ via a \textbf{different}
+variational approximation as it is impossible to remove dependence on $T$ with this model
+(domain of conjugate has the same dimensionality).
+Instead show that fully independent model of length converges to the same solution under reverse KL
+(does not sound true, but worth checking).
 
 {\color{red}deprecated}
 For that subset, perform DFS until $J$ examples that satisfy the likelihood ratio constraint
