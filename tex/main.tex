@@ -269,9 +269,9 @@ the conditional expected value of $\log p(y)$ given $y$ is length $T$.
 Similarly, maximizing over $[\theta_{t,T}]_{y_t}$ yields
 $$
 [\mu_{t,T}]_{y'} = \sum_y 1(y_t = y')\frac{\exp(\langle\theta,\phi(y)\rangle)}{Z} \log p(y)
-= \Es{q}{\log p(y) \mid y_t = y'}.
+= \Es{q}{\log p(y) \mid y_t = y', |y| = T}.
 $$
-Hm, this is not what I wanted. Redo.
+Hm, this is not what I wanted. Redo, try to remove dependence on $T$.
 
 {\color{red}deprecated}
 For that subset, perform DFS until $J$ examples that satisfy the likelihood ratio constraint
