@@ -226,6 +226,52 @@ Given $\hat{Y}^t$, we then find $q^t$ by optimizing
     \maximize_{q^t} \sum_i \sum_j q^t(\hat{y}_{i,j} \mid x_i) \log p(\hat{y}_{i,j} \mid x_i).
 \end{equation}
 
+\section{Dual of NAR}
+In this section, we attempt to get rid of explicit length modeling during training
+using the assumption that we want low entropy solutions.
+In the primal optimization problem of interest, we wish to maximize
+\begin{equation}
+    L(q) = \sum_{y} q(y) \log p(y)
+    = \sum_{y} q(T = |y|) \prod_t q(y_t \mid T)\log p(y)
+\end{equation}
+wrt the distribution $q(y) = q(T)\prod_t q(y_t \mid T)$.
+We can also write $q$ as an exponential family model:
+$$q(y)
+= \frac{\exp(\langle \theta, y \rangle)}{Z}
+= \frac{\exp([\theta]_T + \sum_t [\theta_{t, T}]_{y_t})}{Z},
+$$
+where $Z = \sum_y \exp(\theta_T + \sum_t \theta_{y_t,t,T})$ is the normalizing constant,
+and we have $y = (T, y_1, \ldots, y_T)$.
+The primal problem equivalently optimizes over $\theta$:
+\begin{equation}
+    \begin{aligned}
+    L(\theta)
+    &= \sum_{y} q(T = |y|) \prod_t q(y_t \mid T)\log p(y)\\
+    &= \sum_y \frac{\exp([\theta]_T + \sum_t [\theta_{t,T}]_{y_t})}{Z} \log p(y)\\
+    &= \sum_y \frac{\exp(\langle\theta, \phi(y)\rangle)}{Z} \log p(y),
+    \end{aligned}
+\end{equation}
+where $\phi(y) = (T, y_1, \ldots, y_T)$ is a feature function.
+This form will be helpful, as it makes it clear that $L: \Theta\to\R$
+and the structure of $\theta\in\Theta$ is known:
+$\theta\in\N\times\mcY_1\cdots\times\mcY_{T_{\max}}$, where $T_{\max}$ is the max length.
+The Fenchel-Legendre conjugate of this function is
+\begin{equation}
+    L^*(\mu) = \sup_\theta \langle \theta, \mu\rangle - L(\theta)
+        = \sup_\theta \langle \theta, \mu\rangle - \sum_y\frac{\exp(\langle\theta,\phi(y)\rangle)}{Z} \log p(y).
+\end{equation}
+Maximizing over $[\theta]_T$ by setting the derivative to 0, we have
+$$
+[\mu]_T = \sum_y 1(|y| = T)\frac{\exp(\langle\theta,\phi(y)\rangle)}{Z} \log p(y)
+= \Es{q}{\log p(y) \mid |y| = T}
+$$
+the conditional expected value of $\log p(y)$ given $y$ is length $T$.
+Similarly, maximizing over $[\theta_{t,T}]_{y_t}$ yields
+$$
+[\mu_{t,T}]_{y'} = \sum_y 1(y_t = y')\frac{\exp(\langle\theta,\phi(y)\rangle)}{Z} \log p(y)
+= \Es{q}{\log p(y) \mid y_t = y'}.
+$$
+Hm, this is not what I wanted. Redo.
 
 {\color{red}deprecated}
 For that subset, perform DFS until $J$ examples that satisfy the likelihood ratio constraint
